@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from httpx import AsyncClient, ASGITransport
 
 
@@ -15,6 +15,8 @@ VALID_PAYLOAD = {
     },
 }
 
+VALID_HEADERS = {"X-API-Key": "test-secret"}
+
 
 @pytest.mark.anyio
 async def test_post_health_returns_200_on_valid_payload():
@@ -22,9 +24,10 @@ async def test_post_health_returns_200_on_valid_payload():
 
     with patch("main.find_or_create_week", return_value="week-abc"), \
          patch("main.create_day_entry", return_value="day-xyz"), \
-         patch("main.update_week_averages"):
+         patch("main.update_week_averages"), \
+         patch("main.API_KEY", "test-secret"):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            response = await client.post("/", json=VALID_PAYLOAD)
+            response = await client.post("/export/nutrition", json=VALID_PAYLOAD, headers=VALID_HEADERS)
 
     assert response.status_code == 200
     body = response.json()
@@ -33,14 +36,43 @@ async def test_post_health_returns_200_on_valid_payload():
 
 
 @pytest.mark.anyio
+async def test_post_health_returns_401_without_token():
+    from main import app
+
+    with patch("main.find_or_create_week", return_value="week-abc"), \
+         patch("main.create_day_entry", return_value="day-xyz"), \
+         patch("main.update_week_averages"), \
+         patch("main.API_KEY", "test-secret"):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/export/nutrition", json=VALID_PAYLOAD)
+
+    assert response.status_code == 401
+
+
+@pytest.mark.anyio
+async def test_post_health_returns_401_with_wrong_token():
+    from main import app
+
+    with patch("main.find_or_create_week", return_value="week-abc"), \
+         patch("main.create_day_entry", return_value="day-xyz"), \
+         patch("main.update_week_averages"), \
+         patch("main.API_KEY", "test-secret"):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/export/nutrition", json=VALID_PAYLOAD, headers={"X-API-Key": "wrong"})
+
+    assert response.status_code == 401
+
+
+@pytest.mark.anyio
 async def test_post_health_returns_422_on_missing_data_field():
     from main import app
 
     with patch("main.find_or_create_week", return_value="w"), \
          patch("main.create_day_entry", return_value="d"), \
-         patch("main.update_week_averages"):
+         patch("main.update_week_averages"), \
+         patch("main.API_KEY", "test-secret"):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            response = await client.post("/", json={"source": "nutrition"})
+            response = await client.post("/export/nutrition", json={"source": "nutrition"}, headers=VALID_HEADERS)
 
     assert response.status_code == 422
 
@@ -55,9 +87,10 @@ async def test_post_health_returns_422_on_missing_calories():
     }
     with patch("main.find_or_create_week", return_value="w"), \
          patch("main.create_day_entry", return_value="d"), \
-         patch("main.update_week_averages"):
+         patch("main.update_week_averages"), \
+         patch("main.API_KEY", "test-secret"):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            response = await client.post("/", json=payload)
+            response = await client.post("/export/nutrition", json=payload, headers=VALID_HEADERS)
 
     assert response.status_code == 422
 
@@ -68,9 +101,10 @@ async def test_post_health_returns_500_on_notion_error():
 
     with patch("main.find_or_create_week", side_effect=Exception("Notion API error")), \
          patch("main.create_day_entry", return_value="d"), \
-         patch("main.update_week_averages"):
+         patch("main.update_week_averages"), \
+         patch("main.API_KEY", "test-secret"):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            response = await client.post("/", json=VALID_PAYLOAD)
+            response = await client.post("/export/nutrition", json=VALID_PAYLOAD, headers=VALID_HEADERS)
 
     assert response.status_code == 500
     assert "error" in response.json()
@@ -83,9 +117,10 @@ async def test_post_health_calls_find_or_create_week():
 
     with patch("main.find_or_create_week", return_value="week-abc") as mock_week, \
          patch("main.create_day_entry", return_value="day-xyz"), \
-         patch("main.update_week_averages"):
+         patch("main.update_week_averages"), \
+         patch("main.API_KEY", "test-secret"):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            await client.post("/", json=VALID_PAYLOAD)
+            await client.post("/export/nutrition", json=VALID_PAYLOAD, headers=VALID_HEADERS)
 
     mock_week.assert_called_once()
     assert mock_week.call_args[0][1] == datetime.date(2026, 4, 1)
@@ -97,9 +132,10 @@ async def test_post_health_calls_create_day_entry():
 
     with patch("main.find_or_create_week", return_value="week-abc"), \
          patch("main.create_day_entry", return_value="day-xyz") as mock_day, \
-         patch("main.update_week_averages"):
+         patch("main.update_week_averages"), \
+         patch("main.API_KEY", "test-secret"):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            await client.post("/", json=VALID_PAYLOAD)
+            await client.post("/export/nutrition", json=VALID_PAYLOAD, headers=VALID_HEADERS)
 
     mock_day.assert_called_once()
     assert mock_day.call_args[0][2] == "week-abc"
@@ -111,9 +147,10 @@ async def test_post_health_calls_update_week_averages():
 
     with patch("main.find_or_create_week", return_value="week-abc"), \
          patch("main.create_day_entry", return_value="day-xyz"), \
-         patch("main.update_week_averages") as mock_avg:
+         patch("main.update_week_averages") as mock_avg, \
+         patch("main.API_KEY", "test-secret"):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            await client.post("/", json=VALID_PAYLOAD)
+            await client.post("/export/nutrition", json=VALID_PAYLOAD, headers=VALID_HEADERS)
 
     mock_avg.assert_called_once()
     assert mock_avg.call_args[0][1] == "week-abc"

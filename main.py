@@ -3,7 +3,7 @@ import os
 
 from dotenv import load_dotenv
 import logging
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Header
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -17,6 +17,11 @@ load_dotenv()
 
 app = FastAPI()
 
+API_KEY = os.environ.get("API_KEY", "")
+notion_client = Client(auth=os.environ.get("NOTION_TOKEN", ""))
+DB_SEMAINES_ID = os.environ.get("DB_SEMAINES_ID", "")
+DB_JOURS_ID = os.environ.get("DB_JOURS_ID", "")
+
 
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(request: Request, exc: RequestValidationError):
@@ -25,22 +30,14 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
     logger.error(f"422 detail: {exc.errors()}")
     return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
-notion_client = Client(auth=os.environ.get("NOTION_TOKEN", ""))
-DB_SEMAINES_ID = os.environ.get("DB_SEMAINES_ID", "")
-DB_JOURS_ID = os.environ.get("DB_JOURS_ID", "")
 
-
-@app.post("/debug")
-async def debug(request: Request):
-    body = await request.body()
-    return {
-        "content_type": request.headers.get("content-type"),
-        "body": body.decode("utf-8", errors="replace"),
-    }
-
-
-@app.post("/")
-async def ingest_health_data(payload: HealthPayload):
+@app.post("/export/nutrition")
+async def ingest_health_data(
+    payload: HealthPayload,
+    x_api_key: str = Header(default=None),
+):
+    if x_api_key != API_KEY:
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
     try:
         date = datetime.date.fromisoformat(payload.data.date)
         week_page_id = find_or_create_week(notion_client, date, DB_SEMAINES_ID)

@@ -7,4 +7,5 @@ services:
       - NOTION_TOKEN
       - DB_SEMAINES_ID
       - DB_JOURS_ID
+      - API_KEY
     restart: unless-stopped
