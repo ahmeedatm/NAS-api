@@ -13,6 +13,7 @@ def test_health_payload_valid():
             "protein_g": 160,
             "carbs_g": 200,
             "fat_g": 70,
+            "weight_kg_x10": 744,
         },
     )
     assert payload.source == "nutrition"
@@ -21,6 +22,7 @@ def test_health_payload_valid():
     assert payload.data.protein_g == 160
     assert payload.data.carbs_g == 200
     assert payload.data.fat_g == 70
+    assert payload.data.weight_kg_x10 == 744
 
 
 def test_health_data_missing_field_raises():
@@ -29,7 +31,7 @@ def test_health_data_missing_field_raises():
     with pytest.raises(ValidationError):
         HealthPayload(
             source="nutrition",
-            data={"date": "2026-04-01", "calories": 2200},  # missing macros
+            data={"date": "2026-04-01", "calories": 2200},  # missing macros and weight
         )
 
 
@@ -52,5 +54,6 @@ def test_health_data_invalid_date_type_raises():
                 "protein_g": 160,
                 "carbs_g": 200,
                 "fat_g": 70,
+                "weight_kg_x10": 744,
             },
         )

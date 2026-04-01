@@ -11,6 +11,7 @@ VALID_PAYLOAD = {
         "protein_g": 160,
         "carbs_g": 200,
         "fat_g": 70,
+        "weight_kg_x10": 744,
     },
 }
 

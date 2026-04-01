@@ -167,7 +167,7 @@ def test_create_day_entry_returns_page_id():
     mock_client = MagicMock()
     mock_client.pages.create.return_value = {"id": "day-page-555"}
 
-    data = HealthData(date="2026-04-01", calories=2200, protein_g=160, carbs_g=200, fat_g=70)
+    data = HealthData(date="2026-04-01", calories=2200, protein_g=160, carbs_g=200, fat_g=70, weight_kg_x10=744)
     result = create_day_entry(mock_client, data, "week-page-id", "db-days-id")
 
     assert result == "day-page-555"
@@ -180,7 +180,7 @@ def test_create_day_entry_sets_all_properties():
     mock_client = MagicMock()
     mock_client.pages.create.return_value = {"id": "day-page-555"}
 
-    data = HealthData(date="2026-04-01", calories=2200, protein_g=160, carbs_g=200, fat_g=70)
+    data = HealthData(date="2026-04-01", calories=2200, protein_g=160, carbs_g=200, fat_g=70, weight_kg_x10=744)
     create_day_entry(mock_client, data, "week-page-id", "db-days-id")
 
     props = mock_client.pages.create.call_args[1]["properties"]
@@ -188,6 +188,7 @@ def test_create_day_entry_sets_all_properties():
     assert props["Proteins"]["number"] == 160
     assert props["Carbs"]["number"] == 200
     assert props["Fats"]["number"] == 70
+    assert props["Poids"]["number"] == 74.4
     assert props["Date"]["date"]["start"] == "2026-04-01"
     assert props["Week"]["relation"][0]["id"] == "week-page-id"
 
@@ -202,8 +203,8 @@ def test_update_week_averages_computes_correct_means():
     mock_client = MagicMock()
     mock_client.data_sources.query.return_value = {
         "results": [
-            {"properties": {"Calories": {"number": 2100}, "Proteins": {"number": 150}, "Carbs": {"number": 200}, "Fats": {"number": 60}}},
-            {"properties": {"Calories": {"number": 2300}, "Proteins": {"number": 170}, "Carbs": {"number": 220}, "Fats": {"number": 80}}},
+            {"properties": {"Calories": {"number": 2100}, "Proteins": {"number": 150}, "Carbs": {"number": 200}, "Fats": {"number": 60}, "Poids": {"number": 74.0}}},
+            {"properties": {"Calories": {"number": 2300}, "Proteins": {"number": 170}, "Carbs": {"number": 220}, "Fats": {"number": 80}, "Poids": {"number": 74.8}}},
         ]
     }
 
@@ -214,6 +215,7 @@ def test_update_week_averages_computes_correct_means():
     assert props["Protéines moy/jour"]["number"] == 160.0
     assert props["Glucides moy/jour"]["number"] == 210.0
     assert props["Lipides moy/jour"]["number"] == 70.0
+    assert props["Poids moyen"]["number"] == 74.4
 
 
 def test_update_week_averages_skips_update_when_no_days():
@@ -232,7 +234,7 @@ def test_update_week_averages_filters_by_week_relation():
 
     mock_client = MagicMock()
     mock_client.data_sources.query.return_value = {"results": [
-        {"properties": {"Calories": {"number": 2000}, "Proteins": {"number": 150}, "Carbs": {"number": 200}, "Fats": {"number": 60}}},
+        {"properties": {"Calories": {"number": 2000}, "Proteins": {"number": 150}, "Carbs": {"number": 200}, "Fats": {"number": 60}, "Poids": {"number": 74.0}}},
     ]}
 
     update_week_averages(mock_client, "week-xyz", "db-days-id")

@@ -72,6 +72,7 @@ def update_week_averages(client, week_page_id: str, db_days_id: str) -> None:
             "Protéines moy/jour": {"number": avg("Proteins")},
             "Glucides moy/jour": {"number": avg("Carbs")},
             "Lipides moy/jour": {"number": avg("Fats")},
+            "Poids moyen": {"number": avg("Poids")},
         },
     )
 
@@ -90,6 +91,7 @@ def create_day_entry(client, data: HealthData, week_page_id: str, db_days_id: st
             "Proteins": {"number": data.protein_g},
             "Carbs": {"number": data.carbs_g},
             "Fats": {"number": data.fat_g},
+            "Poids": {"number": round(data.weight_kg_x10 / 10, 1)},
             "Week": {
                 "relation": [{"id": week_page_id}]
             },

@@ -7,6 +7,7 @@ class HealthData(BaseModel):
     protein_g: float
     carbs_g: float
     fat_g: float
+    weight_kg_x10: int
 
 
 class HealthPayload(BaseModel):
