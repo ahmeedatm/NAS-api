@@ -3,10 +3,10 @@ from pydantic import BaseModel
 
 class HealthData(BaseModel):
     date: str
-    calories: int
-    protein_g: int
-    carbs_g: int
-    fat_g: int
+    calories: float
+    protein_g: float
+    carbs_g: float
+    fat_g: float
 
 
 class HealthPayload(BaseModel):
