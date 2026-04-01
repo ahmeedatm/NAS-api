@@ -30,6 +30,15 @@ DB_SEMAINES_ID = os.environ.get("DB_SEMAINES_ID", "")
 DB_JOURS_ID = os.environ.get("DB_JOURS_ID", "")
 
 
+@app.post("/debug")
+async def debug(request: Request):
+    body = await request.body()
+    return {
+        "content_type": request.headers.get("content-type"),
+        "body": body.decode("utf-8", errors="replace"),
+    }
+
+
 @app.post("/")
 async def ingest_health_data(payload: HealthPayload):
     try:
