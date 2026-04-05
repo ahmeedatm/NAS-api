@@ -164,22 +164,27 @@ def _make_workout_result(sport: str) -> dict:
     return {"properties": {"Sport": {"select": {"name": sport}}}}
 
 
+def _mock_httpx_response(results: list):
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = {"results": results}
+    mock_resp.raise_for_status.return_value = None
+    return mock_resp
+
+
 def test_get_activity_for_date_returns_repos_when_no_entry():
     from notion_service import get_activity_for_date
 
     mock_client = MagicMock()
-    mock_client.data_sources.query.return_value = {"results": []}
-
-    assert get_activity_for_date(mock_client, datetime.date(2026, 4, 1), "db-workout-id") == "Repos"
+    with patch("notion_service.httpx.post", return_value=_mock_httpx_response([])):
+        assert get_activity_for_date(mock_client, datetime.date(2026, 4, 1), "db-workout-id") == "Repos"
 
 
 def test_get_activity_for_date_returns_kine():
     from notion_service import get_activity_for_date
 
     mock_client = MagicMock()
-    mock_client.data_sources.query.return_value = {"results": [_make_workout_result("Kiné")]}
-
-    assert get_activity_for_date(mock_client, datetime.date(2026, 4, 1), "db-workout-id") == "Kiné"
+    with patch("notion_service.httpx.post", return_value=_mock_httpx_response([_make_workout_result("Kiné")])):
+        assert get_activity_for_date(mock_client, datetime.date(2026, 4, 1), "db-workout-id") == "Kiné"
 
 
 @pytest.mark.parametrize("sport", ["Calisthénie", "Volley", "Mixte"])
@@ -187,9 +192,8 @@ def test_get_activity_for_date_returns_entrainement(sport):
     from notion_service import get_activity_for_date
 
     mock_client = MagicMock()
-    mock_client.data_sources.query.return_value = {"results": [_make_workout_result(sport)]}
-
-    assert get_activity_for_date(mock_client, datetime.date(2026, 4, 1), "db-workout-id") == "Entrainement"
+    with patch("notion_service.httpx.post", return_value=_mock_httpx_response([_make_workout_result(sport)])):
+        assert get_activity_for_date(mock_client, datetime.date(2026, 4, 1), "db-workout-id") == "Entrainement"
 
 
 # ---------------------------------------------------------------------------
@@ -227,7 +231,7 @@ def test_create_day_entry_sets_all_properties():
     assert props["Carbs"]["number"] == 200
     assert props["Fats"]["number"] == 70
     assert props["Poids"]["number"] == 74.4
-    assert props["Activité"]["select"]["name"] == "Entrainement"
+    assert props["Activité"]["status"]["name"] == "Entrainement"
     assert props["Date"]["date"]["start"] == "2026-04-01"
     assert props["Week"]["relation"][0]["id"] == "week-page-id"
 

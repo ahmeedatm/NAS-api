@@ -1,6 +1,8 @@
 import datetime
 from typing import Optional
 
+import httpx
+
 from models import HealthData
 
 
@@ -98,11 +100,20 @@ _KINE_SPORTS = {"Kiné"}
 
 
 def get_activity_for_date(client, date: datetime.date, db_workout_id: str) -> str:
-    response = client.data_sources.query(
-        db_workout_id,
-        filter={"property": "Date", "date": {"equals": date.isoformat()}},
+    # La base workout est une DB Notion standard (pas un data_source).
+    # L'endpoint data_sources/query (API 2025-09-03) ne fonctionne que pour les
+    # data sources. On utilise databases/query avec Notion-Version 2022-06-28.
+    resp = httpx.post(
+        f"https://api.notion.com/v1/databases/{db_workout_id}/query",
+        headers={
+            "Authorization": f"Bearer {client.options.auth}",
+            "Notion-Version": "2022-06-28",
+        },
+        json={"filter": {"property": "Date", "date": {"equals": date.isoformat()}}},
+        timeout=30,
     )
-    results = response.get("results", [])
+    resp.raise_for_status()
+    results = resp.json().get("results", [])
     if not results:
         return "Repos"
     sport = results[0]["properties"]["Sport"]["select"]["name"]
@@ -133,7 +144,7 @@ def create_day_entry(client, data: HealthData, week_page_id: str, db_days_id: st
             "Carbs": {"number": data.carbs_g},
             "Fats": {"number": data.fat_g},
             "Poids": {"number": weight},
-            "Activité": {"select": {"name": activity}},
+            "Activité": {"status": {"name": activity}},
             "Week": {
                 "relation": [{"id": week_page_id}]
             },
