@@ -157,6 +157,42 @@ def test_find_or_create_week_creates_with_incremented_number():
 
 
 # ---------------------------------------------------------------------------
+# get_activity_for_date
+# ---------------------------------------------------------------------------
+
+def _make_workout_result(sport: str) -> dict:
+    return {"properties": {"Sport": {"select": {"name": sport}}}}
+
+
+def test_get_activity_for_date_returns_repos_when_no_entry():
+    from notion_service import get_activity_for_date
+
+    mock_client = MagicMock()
+    mock_client.data_sources.query.return_value = {"results": []}
+
+    assert get_activity_for_date(mock_client, datetime.date(2026, 4, 1), "db-workout-id") == "Repos"
+
+
+def test_get_activity_for_date_returns_kine():
+    from notion_service import get_activity_for_date
+
+    mock_client = MagicMock()
+    mock_client.data_sources.query.return_value = {"results": [_make_workout_result("Kiné")]}
+
+    assert get_activity_for_date(mock_client, datetime.date(2026, 4, 1), "db-workout-id") == "Kiné"
+
+
+@pytest.mark.parametrize("sport", ["Calisthénie", "Volley", "Mixte"])
+def test_get_activity_for_date_returns_entrainement(sport):
+    from notion_service import get_activity_for_date
+
+    mock_client = MagicMock()
+    mock_client.data_sources.query.return_value = {"results": [_make_workout_result(sport)]}
+
+    assert get_activity_for_date(mock_client, datetime.date(2026, 4, 1), "db-workout-id") == "Entrainement"
+
+
+# ---------------------------------------------------------------------------
 # create_day_entry
 # ---------------------------------------------------------------------------
 
@@ -168,7 +204,8 @@ def test_create_day_entry_returns_page_id():
     mock_client.pages.create.return_value = {"id": "day-page-555"}
 
     data = HealthData(date="2026-04-01", calories=2200, protein_g=160, carbs_g=200, fat_g=70, weight_kg_x10=744)
-    result = create_day_entry(mock_client, data, "week-page-id", "db-days-id")
+    with patch("notion_service.get_activity_for_date", return_value="Repos"):
+        result = create_day_entry(mock_client, data, "week-page-id", "db-days-id", "db-workout-id")
 
     assert result == "day-page-555"
 
@@ -181,7 +218,8 @@ def test_create_day_entry_sets_all_properties():
     mock_client.pages.create.return_value = {"id": "day-page-555"}
 
     data = HealthData(date="2026-04-01", calories=2200, protein_g=160, carbs_g=200, fat_g=70, weight_kg_x10=744)
-    create_day_entry(mock_client, data, "week-page-id", "db-days-id")
+    with patch("notion_service.get_activity_for_date", return_value="Entrainement"):
+        create_day_entry(mock_client, data, "week-page-id", "db-days-id", "db-workout-id")
 
     props = mock_client.pages.create.call_args[1]["properties"]
     assert props["Calories"]["number"] == 2200
@@ -189,6 +227,7 @@ def test_create_day_entry_sets_all_properties():
     assert props["Carbs"]["number"] == 200
     assert props["Fats"]["number"] == 70
     assert props["Poids"]["number"] == 74.4
+    assert props["Activité"]["select"]["name"] == "Entrainement"
     assert props["Date"]["date"]["start"] == "2026-04-01"
     assert props["Week"]["relation"][0]["id"] == "week-page-id"
 

@@ -8,6 +8,7 @@ import logging
 from fastapi import FastAPI, Request, Header
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 
 logger = logging.getLogger("uvicorn.error")
 from notion_client import Client
@@ -23,6 +24,7 @@ API_KEY = os.environ.get("API_KEY", "")
 notion_client = Client(auth=os.environ.get("NOTION_TOKEN", ""))
 DB_SEMAINES_ID = os.environ.get("DB_SEMAINES_ID", "")
 DB_JOURS_ID = os.environ.get("DB_JOURS_ID", "")
+DB_WORKOUT_ID = os.environ.get("DB_WORKOUT_ID", "")
 
 # Remplace les valeurs manquantes du type `"field": ,` ou `"field": }` par null
 _MISSING_VALUE_RE = re.compile(r'("[\w_]+")\s*:\s*([,\}])')
@@ -53,11 +55,14 @@ async def ingest_health_data(
         payload = HealthPayload(**json.loads(sanitized))
         date = datetime.date.fromisoformat(payload.data.date)
         week_page_id = find_or_create_week(notion_client, date, DB_SEMAINES_ID)
-        day_page_id = create_day_entry(notion_client, payload.data, week_page_id, DB_JOURS_ID)
+        day_page_id = create_day_entry(notion_client, payload.data, week_page_id, DB_JOURS_ID, DB_WORKOUT_ID)
         update_week_averages(notion_client, week_page_id, DB_JOURS_ID)
         return {"status": "ok", "day_page_id": day_page_id}
     except json.JSONDecodeError as exc:
         logger.error(f"JSON decode error: {exc}")
         return JSONResponse(status_code=400, content={"error": f"Invalid JSON: {exc}"})
+    except ValidationError as exc:
+        logger.error(f"422 validation error: {exc.errors()}")
+        return JSONResponse(status_code=422, content={"detail": exc.errors()})
     except Exception as exc:
         return JSONResponse(status_code=500, content={"error": str(exc)})

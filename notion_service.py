@@ -94,11 +94,30 @@ def update_week_averages(client, week_page_id: str, db_days_id: str) -> None:
     )
 
 
-def create_day_entry(client, data: HealthData, week_page_id: str, db_days_id: str) -> str:
+_KINE_SPORTS = {"Kiné"}
+
+
+def get_activity_for_date(client, date: datetime.date, db_workout_id: str) -> str:
+    response = client.data_sources.query(
+        db_workout_id,
+        filter={"property": "Date", "date": {"equals": date.isoformat()}},
+    )
+    results = response.get("results", [])
+    if not results:
+        return "Repos"
+    sport = results[0]["properties"]["Sport"]["select"]["name"]
+    if sport in _KINE_SPORTS:
+        return "Kiné"
+    return "Entrainement"
+
+
+def create_day_entry(client, data: HealthData, week_page_id: str, db_days_id: str, db_workout_id: str) -> str:
     if data.weight_kg_x10 is not None:
         weight = round(data.weight_kg_x10 / 10, 1)
     else:
         weight = get_last_weight(client, db_days_id)
+
+    activity = get_activity_for_date(client, datetime.date.fromisoformat(data.date), db_workout_id)
 
     response = client.pages.create(
         parent={"data_source_id": db_days_id},
@@ -114,6 +133,7 @@ def create_day_entry(client, data: HealthData, week_page_id: str, db_days_id: st
             "Carbs": {"number": data.carbs_g},
             "Fats": {"number": data.fat_g},
             "Poids": {"number": weight},
+            "Activité": {"select": {"name": activity}},
             "Week": {
                 "relation": [{"id": week_page_id}]
             },
