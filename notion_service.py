@@ -51,6 +51,19 @@ def find_or_create_week(client, date: datetime.date, db_weeks_id: str) -> str:
     return create_week_page(client, number, monday, db_weeks_id)
 
 
+def get_last_weight(client, db_days_id: str) -> Optional[float]:
+    response = client.data_sources.query(
+        db_days_id,
+        filter={"property": "Poids", "number": {"is_not_empty": True}},
+        sorts=[{"property": "Date", "direction": "descending"}],
+        page_size=1,
+    )
+    results = response.get("results", [])
+    if not results:
+        return None
+    return results[0]["properties"]["Poids"]["number"]
+
+
 def update_week_averages(client, week_page_id: str, db_days_id: str) -> None:
     response = client.data_sources.query(
         db_days_id,
@@ -65,6 +78,10 @@ def update_week_averages(client, week_page_id: str, db_days_id: str) -> None:
     def avg(field: str) -> float:
         return round(sum(d["properties"][field]["number"] for d in days) / n, 1)
 
+    def avg_nullable(field: str) -> Optional[float]:
+        values = [d["properties"][field]["number"] for d in days if d["properties"][field]["number"] is not None]
+        return round(sum(values) / len(values), 1) if values else None
+
     client.pages.update(
         page_id=week_page_id,
         properties={
@@ -72,12 +89,17 @@ def update_week_averages(client, week_page_id: str, db_days_id: str) -> None:
             "Protéines moy/jour": {"number": avg("Proteins")},
             "Glucides moy/jour": {"number": avg("Carbs")},
             "Lipides moy/jour": {"number": avg("Fats")},
-            "Poids moyen": {"number": avg("Poids")},
+            "Poids moyen": {"number": avg_nullable("Poids")},
         },
     )
 
 
 def create_day_entry(client, data: HealthData, week_page_id: str, db_days_id: str) -> str:
+    if data.weight_kg_x10 is not None:
+        weight = round(data.weight_kg_x10 / 10, 1)
+    else:
+        weight = get_last_weight(client, db_days_id)
+
     response = client.pages.create(
         parent={"data_source_id": db_days_id},
         properties={
@@ -91,7 +113,7 @@ def create_day_entry(client, data: HealthData, week_page_id: str, db_days_id: st
             "Proteins": {"number": data.protein_g},
             "Carbs": {"number": data.carbs_g},
             "Fats": {"number": data.fat_g},
-            "Poids": {"number": round(data.weight_kg_x10 / 10, 1)},
+            "Poids": {"number": weight},
             "Week": {
                 "relation": [{"id": week_page_id}]
             },
